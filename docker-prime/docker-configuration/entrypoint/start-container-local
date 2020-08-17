@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+## Add additional LOCAL settings here.
+##  These settings will be appended to the start-container main file that is loaded in Dockerfile

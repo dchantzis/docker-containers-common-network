@@ -1,0 +1,63 @@
+version: '3.5'
+services:
+  app:
+    build:
+      context: ./docker-configuration
+      dockerfile: ./Dockerfile
+    image: secondary:latest
+    container_name: secondary
+    environment:
+
+      # These values are read from the .env file. Environmental parameters that are are passed from the docker-compose command
+      #   take precedence over the ones defined in the .env file.
+
+      # By default the .env file that is in the same directory as docker-compose.yml will always be used. This is unrelated
+      #   to the .env file of Laravel, even though parameter names and the filename may be the same.
+      # If the .env files of docker compose and Laravel need to be combined, the docker-compose.yml has to be in the same directory
+      #   as the Laravel source code.
+
+      # The following parameters are taking the values from the .env file
+      #   If a specific value is used - i.e. VAR_TEST: "test" - it has higher priority than the ones in .env
+      #   The values specified here will become ENVIRONMENT parameters inside the container.
+      #   The docker compose .env will DEFINE ENVIRONMENT PARAMETERS in the container.
+      #   Environment parameters defined in the docker composer .env file, that are not referenced in this file, will not EXIST in the container
+
+      XDEBUG_HOST: ${XDEBUG_HOST}
+      APP_PORT: ${APP_PORT}
+      APP_CONTAINER_PORT: ${APP_CONTAINER_PORT}
+      APP_ENV: ${APP_ENV}
+      APP_INDEX_DIRECTORY: ${APP_INDEX_DIRECTORY}
+    networks:
+      - secondarynet
+      - default #uses the mainnet referenced below
+    volumes:
+      - ./app:/var/www/
+      - ./docker-configuration/php-mods/local.ini:/usr/local/etc/php/conf.d/local.ini
+    ports:
+      - ${APP_PORT}:${APP_CONTAINER_PORT}
+    working_dir: /var/www/
+
+  redis:
+    image: redis:alpine
+    container_name: secondarycache
+    environment:
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_CONTAINER_PORT: ${REDIS_CONTAINER_PORT}
+    ports:
+      - ${REDIS_PORT}:${REDIS_CONTAINER_PORT}
+    networks:
+      - secondarynet
+    volumes:
+      - secondaryredisdata:/data
+
+networks:
+  secondarynet:
+    driver: bridge
+    name: secondarynet
+  default:
+    external:
+      name: mainnet
+
+volumes:
+  secondaryredisdata:
+    driver: local

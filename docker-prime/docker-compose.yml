@@ -1,0 +1,101 @@
+version: '3.5'
+services:
+  app:
+    build:
+      context: ./docker-configuration
+      dockerfile: ./Dockerfile
+    image: prime:latest
+    container_name: prime
+    #    restart: unless-stopped
+    #    tty: true
+    environment:
+
+      # These values are read from the .env file. Environmental parameters that are are passed from the docker-compose command
+      #   take precedence over the ones defined in the .env file.
+
+      # By default the .env file that is in the same directory as docker-compose.yml will always be used. This is unrelated
+      #   to the .env file of Laravel, even though parameter names and the filename may be the same.
+      # If the .env files of docker compose and Laravel need to be combined, the docker-compose.yml has to be in the same directory
+      #   as the Laravel source code.
+
+      # The following parameters are taking the values from the .env file
+      #   If a specific value is used - i.e. VAR_TEST: "test" - it has higher priority than the ones in .env
+      #   The values specified here will become ENVIRONMENT parameters inside the container.
+      #   The docker compose .env will DEFINE ENVIRONMENT PARAMETERS in the container.
+      #   Environment parameters defined in the docker composer .env file, that are not referenced in this file, will not EXIST in the container
+
+      XDEBUG_HOST: ${XDEBUG_HOST}
+      APP_PORT: ${APP_PORT}
+      APP_CONTAINER_PORT: ${APP_CONTAINER_PORT}
+      APP_ENV: ${APP_ENV}
+      APP_INDEX_DIRECTORY: ${APP_INDEX_DIRECTORY}
+    networks:
+      - primenet
+      - default #uses the mainnet referenced below
+    volumes:
+      - ./app:/var/www/
+      - ./docker-configuration/php-mods/local.ini:/usr/local/etc/php/conf.d/local.ini
+    ports:
+      - ${APP_PORT}:${APP_CONTAINER_PORT}
+    working_dir: /var/www/
+
+  redis:
+    image: redis:alpine
+    container_name: primecache
+    environment:
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_CONTAINER_PORT: ${REDIS_CONTAINER_PORT}
+    ports:
+      - ${REDIS_PORT}:${REDIS_CONTAINER_PORT}
+    networks:
+      - primenet
+    volumes:
+      - primeredisdata:/data
+
+  primedb:
+    image: mysql:5.6
+    container_name: primedb
+    #    restart: unless-stopped
+    environment:
+      DB_PORT: ${DB_PORT}
+      DB_CONTAINER_PORT: ${DB_CONTAINER_PORT}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      # Do not specify a database name. If done it will be created with a default collation and character_set (latin, not utf8)
+      #      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    #    tty: true
+    networks:
+      - primenet
+    ports:
+      - ${DB_PORT}:${DB_CONTAINER_PORT}
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - primedbdata:/var/lib/mysql
+      - ./docker-configuration/mysql/my.cnf:/etc/mysql/mysql.conf.d/my.cnf
+
+  primenode:
+    build:
+      context: ./docker-configuration/node
+      dockerfile: ./Dockerfile
+    image: prime/node:latest
+    container_name: primenode
+    networks:
+      - primenet
+    volumes:
+      - .:/opt
+    working_dir: /opt
+
+networks:
+  primenet:
+    driver: bridge
+    name: primenet
+  default:
+    external:
+      name: mainnet
+
+volumes:
+  primedbdata:
+    driver: local
+  primeredisdata:
+    driver: local

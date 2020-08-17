@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+if [ ! "production" == "$APP_ENV" ] && [ ! "prod" == "$APP_ENV" ]; then
+    # Non-Production Environment
+    # Enable xdebug
+
+    ## FPM
+    ln -sf /etc/php/7.4/mods-available/xdebug.ini /etc/php/7.4fpm/conf.d/20-xdebug.ini
+
+    ## CLI
+    ln -sf /etc/php/7.4/mods-available/xdebug.ini /etc/php/7.4/cli/conf.d/20-xdebug.ini
+
+    # Config /etc/php/7.4/mods-available/xdebug.ini
+    sed -i "s/xdebug\.remote_host\=.*/xdebug\.remote_host\=$XDEBUG_HOST/g" /etc/php/7.4/mods-available/xdebug.ini
+else
+    # Production Environment
+    # Disable xdebug
+
+    ## FPM
+    if [ -e /etc/php/7.4/fpm/conf.d/20-xdebug.ini ]; then
+        rm -f /etc/php/7.4/fpm/conf.d/20-xdebug.ini
+    fi
+
+    ## CLI
+    if [ -e /etc/php/7.4/cli/conf.d/20-xdebug.ini ]; then
+        rm -f /etc/php/7.4/cli/conf.d/20-xdebug.ini
+    fi
+fi
+
+if [ "production" == "$APP_ENV" ] || [ "prod" == "$APP_ENV" ]; then
+
+    # Create the application's .env file
+    mv /usr/bin/app-env-settings/.env.production /var/www/.env
+    rm -r /usr/bin/app-env-settings/
+
+    bash ./start-container-production
+
+elif [ "staging" == "$APP_ENV" ] || [ "stage" == "$APP_ENV" ] || [ "qa" == "$APP_ENV" ]; then
+
+    # Create the application's .env file
+    mv /usr/bin/app-env-settings/.env.staging /var/www/.env
+    rm -r /usr/bin/app-env-settings/
+
+    bash ./start-container-staging
+
+else
+
+    # Create the application's .env file
+    mv /usr/bin/app-env-settings/.env.local /var/www/.env
+    rm -r /usr/bin/app-env-settings/
+
+    bash ./start-container-local
+
+fi
+
+##
+# Ensure /.composer exists and is writable
+#
+if [ ! -d /.composer ]; then
+    mkdir /.composer
+fi
+
+chmod -R ugo+rw /.composer
+
+##
+# Run a command or start supervisord (default to supervisord)
+#
+if [ $# -gt 0 ];then
+    # If we passed a command, run it
+    exec "$@"
+else
+    # Otherwise start supervisord
+    /usr/bin/supervisord
+fi
